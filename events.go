@@ -78,7 +78,7 @@ type emailAddress struct {
 	Name    string `json:"Name"`
 }
 
-type calenderResponse struct {
+type calendarResponse struct {
 	Calendars []calendar `json:"value"`
 }
 

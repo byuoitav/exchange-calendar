@@ -1,6 +1,7 @@
 package exchange
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/byuoitav/calendar-api-microservice/exchange/models"
 	"github.com/byuoitav/common/log"
 	"github.com/byuoitav/scheduler/calendars"
 )
@@ -25,15 +25,15 @@ type Calendar struct {
 
 // GetEvents will get all the days events in exchange
 func (c *Calendar) GetEvents(ctx context.Context) ([]calendars.Event, error) {
-	token, err := GetToken()
+	token, err := c.GetToken(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting exchange token: %w", err)
 	}
 	bearerToken := "Bearer " + token
 
-	calendarID, err := GetCalendarID(ctx, token)
+	calendarID, err := c.GetCalendarID(ctx, token)
 	if err != nil {
-		return nil, fmt.Errorf("error getting calendar ID for room: %s, %w", room, err)
+		return nil, fmt.Errorf("error getting calendar ID for room: %s, %w", c.RoomId, err)
 	}
 
 	reqURL := "https://outlook.office.com/api/v2.0/users/" + c.RoomResource + "/calendars/" + calendarID + "/calendarView"
@@ -69,7 +69,7 @@ func (c *Calendar) GetEvents(ctx context.Context) ([]calendars.Event, error) {
 	}
 
 	if resp.StatusCode/100 != 2 {
-		return fmt.Errorf("invalid response code %v: %s", resp.StatusCode, body)
+		return nil, fmt.Errorf("invalid response code %v: %s", resp.StatusCode, body)
 	}
 
 	var respBody eventResponse
@@ -105,32 +105,23 @@ func (c *Calendar) GetEvents(ctx context.Context) ([]calendars.Event, error) {
 
 // CreateEvent will create an exchange event
 func (c *Calendar) CreateEvent(ctx context.Context, event calendars.Event) error {
-	token, err := GetToken()
+	token, err := c.GetToken(ctx)
 	if err != nil {
 		return fmt.Errorf("error getting auth token: %w", err)
 	}
 	bearerToken := "Bearer " + token
 
-	calendarID, err := GetCalendarID(ctx, token)
+	calendarID, err := c.GetCalendarID(ctx, token)
 	if err != nil {
 		return fmt.Errorf("error getting calendar ID for room: %s, %w", c.RoomId, err)
 	}
 
 	//Convert calendar event into exchange event
 	loc, _ := time.LoadLocation("UTC")
-	dateTimeLayout := "2006-01-02T15:04:05-07:00"
 
-	eventStart, err := time.Parse(dateTimeLayout, event.StartTime)
-	if err != nil {
-		return fmt.Errorf("error parsing event start time into go time struct: %w", err)
-	}
-	eventStart = eventStart.In(loc)
+	eventStart := event.StartTime.In(loc)
 
-	eventEnd, err := time.Parse(dateTimeLayout, event.EndTime)
-	if err != nil {
-		return fmt.Errorf("error parsing event start time into go time struct: %w", err)
-	}
-	eventEnd = eventEnd.In(loc)
+	eventEnd := event.EndTime.In(loc)
 
 	reqBodyStruct := eventRequest{
 		Subject: event.Title,
@@ -146,7 +137,7 @@ func (c *Calendar) CreateEvent(ctx context.Context, event calendars.Event) error
 			DateTime: eventEnd.Format("2006-01-02T15:04:05"),
 			TimeZone: "Etc/GMT",
 		},
-		Attendees: make([]models.ExchangeAttendee, 0),
+		Attendees: make([]attendee, 0),
 	}
 	reqBodyString, err := json.Marshal(reqBodyStruct)
 	if err != nil {
@@ -154,13 +145,13 @@ func (c *Calendar) CreateEvent(ctx context.Context, event calendars.Event) error
 	}
 
 	reqURL := "https://outlook.office.com/api/v2.0/users/" + c.RoomResource + "/calendars/" + calendarID + "/events"
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBuffer(reqBodyString))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBuffer(reqBodyString))
 	if err != nil {
 		return fmt.Errorf("error creating post request to: %s, %w", reqURL, err)
 	}
 
-	request.Header.Add("Authorization", bearerToken)
-	request.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", bearerToken)
+	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -188,7 +179,7 @@ func (c *Calendar) GetCalendarID(ctx context.Context, token string) (string, err
 		return "", fmt.Errorf("error creating get request to: %s, %w", reqURL, err)
 	}
 
-	request.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", "Bearer "+token)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -207,16 +198,15 @@ func (c *Calendar) GetCalendarID(ctx context.Context, token string) (string, err
 	}
 
 	if resp.StatusCode/100 != 2 {
-		return fmt.Errorf("invalid response code %v: %s", resp.StatusCode, respBody)
+		return "", fmt.Errorf("invalid response code %v: %s", resp.StatusCode, respBody)
 	}
 
 	// Locate the proper calendar
 	if len(respBody.Calendars) == 0 {
-		return nil, fmt.Errorf("there are no calendars listed for this resource")
-	}
-	else if len(respBody.Calendars) > 1 {
+		return "", fmt.Errorf("there are no calendars listed for this resource")
+	} else if len(respBody.Calendars) > 1 {
 		for _, calendar := range respBody.Calendars {
-			if calendarName == calendar.Name {
+			if c.RoomId == calendar.Name {
 				return calendar.ID, nil
 			}
 		}
@@ -253,7 +243,7 @@ func (c *Calendar) GetToken(ctx context.Context) (string, error) {
 	}
 
 	if resp.StatusCode/100 != 2 {
-		return fmt.Errorf("invalid response code %v: %s", resp.StatusCode, body)
+		return "", fmt.Errorf("invalid response code %v: %s", resp.StatusCode, body)
 	}
 
 	var respBody token
