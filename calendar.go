@@ -19,7 +19,7 @@ type Calendar struct {
 	ClientId     string
 	ClientSecret string
 	TennantId    string
-	RoomId       string
+	RoomID       string
 	RoomResource string
 }
 
@@ -33,7 +33,7 @@ func (c *Calendar) GetEvents(ctx context.Context) ([]calendars.Event, error) {
 
 	calendarID, err := c.GetCalendarID(ctx, token)
 	if err != nil {
-		return nil, fmt.Errorf("error getting calendar ID for room: %s, %w", c.RoomId, err)
+		return nil, fmt.Errorf("error getting calendar ID for room: %s, %w", c.RoomID, err)
 	}
 
 	reqURL := "https://outlook.office.com/api/v2.0/users/" + c.RoomResource + "/calendars/" + calendarID + "/calendarView"
@@ -113,7 +113,7 @@ func (c *Calendar) CreateEvent(ctx context.Context, event calendars.Event) error
 
 	calendarID, err := c.GetCalendarID(ctx, token)
 	if err != nil {
-		return fmt.Errorf("error getting calendar ID for room: %s, %w", c.RoomId, err)
+		return fmt.Errorf("error getting calendar ID for room: %s, %w", c.RoomID, err)
 	}
 
 	//Convert calendar event into exchange event
@@ -204,9 +204,10 @@ func (c *Calendar) GetCalendarID(ctx context.Context, token string) (string, err
 	// Locate the proper calendar
 	if len(respBody.Calendars) == 0 {
 		return "", fmt.Errorf("there are no calendars listed for this resource")
-	} else if len(respBody.Calendars) > 1 {
+	}
+	if len(respBody.Calendars) > 1 {
 		for _, calendar := range respBody.Calendars {
-			if c.RoomId == calendar.Name {
+			if c.RoomID == calendar.Name {
 				return calendar.ID, nil
 			}
 		}
