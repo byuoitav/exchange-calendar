@@ -192,13 +192,13 @@ func (c *Calendar) GetCalendarID(ctx context.Context, token string) (string, err
 		return "", fmt.Errorf("error reading response body: %w", err)
 	}
 
+	if resp.StatusCode/100 != 2 {
+		return "", fmt.Errorf("invalid response code %v: %s", resp.StatusCode, body)
+	}
+
 	var respBody calendarResponse
 	if err := json.Unmarshal(body, &respBody); err != nil {
 		return "", fmt.Errorf("error unmarshalling response body from json into exchange calendar object: %w", err)
-	}
-
-	if resp.StatusCode/100 != 2 {
-		return "", fmt.Errorf("invalid response code %v: %s", resp.StatusCode, respBody)
 	}
 
 	// Locate the proper calendar
