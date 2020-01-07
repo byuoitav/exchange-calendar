@@ -78,6 +78,9 @@ func (c *Calendar) GetEvents(ctx context.Context) ([]calendars.Event, error) {
 	}
 
 	dateTimeLayout := "2006-01-02T15:04:05"
+	timeZone, _ := time.Now().Zone()
+	location, _ := time.LoadLocation(timeZone)
+
 	var events []calendars.Event
 	for _, event := range respBody.Events {
 		eventStart, err := time.Parse(dateTimeLayout, event.Start.DateTime)
@@ -89,14 +92,10 @@ func (c *Calendar) GetEvents(ctx context.Context) ([]calendars.Event, error) {
 			return nil, fmt.Errorf("error parsing exchange event end time into go time struct: %w", err)
 		}
 
-		timeZone, _ := time.Now().Zone()
-		location, _ := time.LoadLocation(timeZone)
-		eventStart = eventStart.In(location)
-		eventEnd = eventEnd.In(location)
 		events = append(events, calendars.Event{
 			Title:     event.Subject,
-			StartTime: eventStart,
-			EndTime:   eventEnd,
+			StartTime: eventStart.In(location),
+			EndTime:   eventEnd.In(location),
 		})
 	}
 
