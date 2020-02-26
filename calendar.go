@@ -44,12 +44,12 @@ func (c *Calendar) GetEvents(ctx context.Context) ([]calendars.Event, error) {
 	req.Header.Add("Authorization", bearerToken)
 
 	//Add query parameters
-	loc, _ := time.LoadLocation("UTC")
+	locUTC, _ := time.LoadLocation("UTC")
 	currentTime := time.Now()
 	currentDayBeginning := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), 0, 0, 0, 0, currentTime.Location())
 	currentDayEnding := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), 23, 59, 59, 0, currentTime.Location())
-	currentDayBeginning = currentDayBeginning.In(loc)
-	currentDayEnding = currentDayEnding.In(loc)
+	currentDayBeginning = currentDayBeginning.In(locUTC)
+	currentDayEnding = currentDayEnding.In(locUTC)
 
 	query := req.URL.Query()
 	query.Add("startDateTime", currentDayBeginning.Format("2006-01-02T15:04:05"))
@@ -78,8 +78,6 @@ func (c *Calendar) GetEvents(ctx context.Context) ([]calendars.Event, error) {
 	}
 
 	dateTimeLayout := "2006-01-02T15:04:05"
-	timeZone, _ := time.Now().Zone()
-	location, _ := time.LoadLocation(timeZone)
 
 	var events []calendars.Event
 	for _, event := range respBody.Events {
@@ -94,8 +92,8 @@ func (c *Calendar) GetEvents(ctx context.Context) ([]calendars.Event, error) {
 
 		events = append(events, calendars.Event{
 			Title:     event.Subject,
-			StartTime: eventStart.In(location),
-			EndTime:   eventEnd.In(location),
+			StartTime: eventStart,
+			EndTime:   eventEnd,
 		})
 	}
 
