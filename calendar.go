@@ -36,7 +36,9 @@ func (c *Calendar) GetEvents(ctx context.Context) ([]calendars.Event, error) {
 		return nil, fmt.Errorf("error getting calendar ID for room: %s, %w", c.RoomID, err)
 	}
 
-	reqURL := "https://outlook.office.com/api/v2.0/users/" + c.RoomResource + "/calendars/" + calendarID + "/calendarView"
+	//reqURL := "https://outlook.office.com/api/v2.0/users/" + c.RoomResource + "/calendars/" + calendarID + "/calendarView"
+	reqURL := "https://graph.microsoft.com/v1.0/users/" + c.RoomResource + "/calendars/" + calendarID + "/calendarView"
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating get request to: %s, %w", reqURL, err)
@@ -141,7 +143,7 @@ func (c *Calendar) CreateEvent(ctx context.Context, event calendars.Event) error
 		return fmt.Errorf("error converting request body to json string: %w", err)
 	}
 
-	reqURL := "https://outlook.office.com/api/v2.0/users/" + c.RoomResource + "/calendars/" + calendarID + "/events"
+	reqURL := "https://graph.microsoft.com/v1.0/users/" + c.RoomResource + "/calendars/" + calendarID + "/events"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBuffer(reqBodyString))
 	if err != nil {
 		return fmt.Errorf("error creating post request to: %s, %w", reqURL, err)
@@ -170,13 +172,14 @@ func (c *Calendar) CreateEvent(ctx context.Context, event calendars.Event) error
 
 // GetCalendarID will get the exchange calendar id
 func (c *Calendar) GetCalendarID(ctx context.Context, token string) (string, error) {
-	reqURL := "https://outlook.office.com/api/v2.0/users/" + c.RoomResource + "/calendars"
+	reqURL := "https://graph.microsoft.com/v1.0/users/" + c.RoomResource + "/calendars"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("error creating get request to: %s, %w", reqURL, err)
 	}
 
 	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -217,7 +220,7 @@ func (c *Calendar) GetCalendarID(ctx context.Context, token string) (string, err
 func (c *Calendar) GetToken(ctx context.Context) (string, error) {
 	bodyParams := url.Values{}
 	bodyParams.Set("client_id", c.ClientId)
-	bodyParams.Set("scope", "https://outlook.office.com/.default")
+	bodyParams.Set("scope", "https://graph.microsoft.com/.default")
 	bodyParams.Set("client_secret", c.ClientSecret)
 	bodyParams.Set("grant_type", "client_credentials")
 
